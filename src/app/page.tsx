@@ -1,113 +1,250 @@
+"use client"
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import Image from "next/image";
+import { useState } from "react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Team } from "@/lib/types";
+import { Input } from "@/components/ui/input";
+
+const abbreviations = {
+  "GM": "Games played",
+  "KI": "Kicks",
+  "MK": "Marks",
+  "HB": "Handballs",
+  "DI": "Disposals",
+  "DA": "Disposal average",
+  "GL": "Goals",
+  "BH": "Behinds",
+  "HO": "Hit outs",
+  "TK": "Tackles",
+  "RB": "Rebound 50s",
+  "IF": "Inside 50s",
+  "CL": "Clearances",
+  "CG": "Clangers",
+  "FF": "Free kicks for",
+  "FA": "Free kicks against",
+  "BR": "Brownlow votes",
+  "CP": "Contested possessions",
+  "UP": "Uncontested possessions",
+  "CM": "Contested marks",
+  "MI": "Marks inside 50",
+  "1%": "One percenters",
+  "BO": "Bounces",
+  "GA": "Goal assist",
+  "%P": "Percentage of game played",
+  "SU": "Sub (On/Off)"
+};
+
+function TeamData(props: any) {
+  // const { name, retirement, abbrev, debut, id, logo, data } = props;
+  return (
+    <DialogContent className="min-w-[80vw] min-h-[80vh] max-h-[80vh] popup overflow-scroll overflow-y-scroll max-h-screen">
+      <DialogHeader>
+        <DialogTitle>{props.name}</DialogTitle>
+        <DialogDescription className="flex flex-col gap-5 overflow-scroll">
+          Team Info
+        </DialogDescription>
+        </DialogHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Retirement</TableHead>
+                <TableHead>Abbrev</TableHead>
+                <TableHead>Debut</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>{props.data.name}</TableCell>
+                <TableCell>{props.data.retirement != 9999 ? props.data.retirement : "N/A"}</TableCell>
+                <TableCell>{props.data.abbrev}</TableCell>
+                <TableCell>{props.data.debut}</TableCell>
+              </TableRow>
+              </TableBody>
+              </Table>
+
+              <Table className="overflow-scroll">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Data</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+{props.data.data && (
+    Object.entries(props.data.data).splice(3).map(([key, value]) => (
+        (value && value[(Object.keys(value).length-1).toString()] != null) && (
+            <TableRow key={key}>
+                <TableCell>{abbreviations[key]}</TableCell>
+                <TableCell>{value[(Object.keys(value).length-1).toString()]}</TableCell>
+            </TableRow>
+        )
+    ))
+)}
+                </TableBody>
+                </Table>
+    </DialogContent>
+  )
+}
+
+function PlayersData(props: any) {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter players based on the search query
+  const filteredPlayers = Object.entries(props.data || {})
+    .filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  return (
+    <DialogContent className="min-w-[80vw] min-h-[80vh] max-h-[80vh] popup overflow-scroll overflow-y-scroll">
+      <DialogHeader>
+        <DialogTitle>Players - {props.name}</DialogTitle>
+        <DialogDescription></DialogDescription>
+      </DialogHeader>
+
+      <div className="min-w-[100%] max-w-sm flex flex-col items-center gap-3">
+        <Label htmlFor="player_search" className="w-full">Search Players</Label>
+      <Input
+        // label="Search Players"
+        id="player_search"
+        placeholder="Enter player name"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="w-[100%]"
+      />
+      </div>
+
+      <Accordion type="single" collapsible className="w-full items-start justify-start">
+        {filteredPlayers.map(([name, data]) => (
+          <AccordionItem value={name} key={name}>
+            <AccordionTrigger>{name}</AccordionTrigger>
+            <AccordionContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Stat</TableHead>
+                    <TableHead>Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(data.season_stats_total).splice(3).map(([key, value]) => (
+                    (abbreviations[key] != null && (
+                    <TableRow key={key}>
+                      <TableCell>{abbreviations[key]}</TableCell>
+                      <TableCell>{value[(Object.keys(value).length - 1).toString()] != null ? value[(Object.keys(value).length - 1).toString()] : "N/A"}</TableCell>
+                    </TableRow>
+                    ))
+                  ))}
+                </TableBody>
+              </Table>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </DialogContent>
+  );
+};
 
 export default function Home() {
+  const apiserver = "http://127.0.0.1:5000/"
+  var defaultteams: Team[] = [];
+  const [teams, setTeams] = useState(defaultteams);
+  const [canFetch, setCanFetch] = useState(true);
+  
+  async function GetTeamData() {
+    if (!canFetch) { return; }
+    fetch("https://api.squiggle.com.au/?q=teams").then((data) => {
+      // console.log(data)
+      data.json().then(async (json) => {
+        let tempteams: Team[] = json["teams"];
+        for (let i = 0; i < tempteams.length; i++) {
+          let headers = new Headers();
+          headers.append('Access-Control-Allow-Origin', 'http://localhost:3000');
+          headers.append('Access-Control-Allow-Credentials', 'true');
+          await fetch(apiserver + "team?" + new URLSearchParams({
+            team: tempteams[i].name
+          }), {
+              // mode: 'no-cors'
+              headers: headers
+            }).then((resp) => {
+            console.log(resp)
+              // console.log(resp.text())
+            resp.json().then((teamdata) => {
+              // console.log(teamdata)
+              tempteams[i].players = teamdata["players"]; 
+              tempteams[i].data = teamdata["stats"];
+            })
+          })
+        }
+        console.log(tempteams)
+        setTeams(tempteams)
+      })
+    });
+  }
+
+  if (canFetch) {
+    setCanFetch(false);
+    GetTeamData();
+    setTimeout(() => {
+      setCanFetch(true);
+    }, 10000)
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+      <Card className="min-h-[90vh] min-w-[100%] p-4 grid-teams gap-5">
+        {teams.map((team) => (
+          <Card key={teams.indexOf(team)} className="flex flex-col gap-5 p-3 text-center team max-h-[25vh]">
+            <CardTitle className="text-base">
+              <div className="flex flex-row justify-center items-center gap-5">
+                <Avatar> 
+                  <AvatarImage src={"https://squiggle.com.au" + team.logo} alt={team.abbrev}/>
+                  <AvatarFallback>{team.abbrev}</AvatarFallback>
+                </Avatar>
+                {team.name}
+              </div>
+            </CardTitle>
+            <CardContent className="team-buttons">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="secondary">Overall Stats</Button>
+              </DialogTrigger>
+              <TeamData name={team.name} data={team}/>
+              </Dialog>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="secondary">Players</Button>
+                </DialogTrigger>
+                <PlayersData name={team.name} data={team.players}/>
+              </Dialog>
+            </CardContent>
+          </Card>
+        ))}
+      </Card>
   );
 }
